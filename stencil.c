@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
   printf("|   %.6lf s   |\n",toc-tic);
   printf("|                |\n");
   printf("|    too slow!   |\n");
-  printf("|   you idiot!   |\n");
+  printf("|   you idiot~!  |\n");
   printf("|＿＿＿＿＿＿＿＿|\n");
   printf(" (\\__/) ||\n");
   printf(" (•ㅅ•) || \n");
