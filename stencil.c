@@ -53,8 +53,7 @@ int main(int argc, char *argv[]) {
   printf("|＿＿＿＿＿＿＿＿|\n");
   printf(" (\\__/) ||\n");
   printf(" (•ㅅ•) || \n");
-  printf(" / 　 づ\n");
-  printf("\n\n");
+  printf(" / 　 づ\n\n");
 
   output_image(OUTPUT_FILE, nx, ny, image);
   free(image);
