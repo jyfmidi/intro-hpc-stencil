@@ -64,10 +64,12 @@ void stencil(const int nx, const int ny, double *  image, double *  tmp_image) {
     for (int i = 0; i < nx; ++i) {
       double temp1 = 0;
       temp1 = image[j+i*ny] * 3.0/5.0;
-      if (i > 0)    temp1 += image[j  +(i-1)*ny] * 0.5/5.0;
-      if (i < nx-1) temp1 += image[j  +(i+1)*ny] * 0.5/5.0;
       if (j > 0)    temp1 += image[j-1+i*ny] * 0.5/5.0;
       if (j < ny-1) temp1 += image[j+1+i*ny] * 0.5/5.0;
+      
+      if (i > 0)    temp1 += image[j  +(i-1)*ny] * 0.5/5.0;
+      if (i < nx-1) temp1 += image[j  +(i+1)*ny] * 0.5/5.0;
+     
       tmp_image[j+i*ny] = temp1;
     }
   }
