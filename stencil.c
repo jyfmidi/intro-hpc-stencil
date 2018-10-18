@@ -58,17 +58,29 @@ int main(int argc, char *argv[]) {
   output_image(OUTPUT_FILE, nx, ny, image);
   free(image);
 }
-
+#define LEFT
 void stencil(const int nx, const int ny, double *  image, double *  tmp_image) {
-  for (int j = 0; j < ny; ++j) {
-    for (int i = 0; i < nx; ++i) {
+  // ny j  0 1 2 3
+  // nx i  -------
+  // 0    |a b c d
+  // 1    |e<f g h
+  // 2    |i j k l
+  //
+  // ny = 4, nx = 3
+  // e(i=1,j=0), 
+  // a(i=0,j=0)=image[0], up
+  // f(i=1,j=1)=image[5], right
+  // i(i=2,j=0)=image[j+i*ny], down
+
+  for (int i = 0; i < nx; ++i) {
+    for (int j = 0; j < ny; ++j) {
       double temp1 = 0;
       temp1 = image[j+i*ny] * 3.0/5.0;
-      if (j > 0)    temp1 += image[j-1+i*ny] * 0.5/5.0;
-      if (j < ny-1) temp1 += image[j+1+i*ny] * 0.5/5.0;
-      
-      if (i > 0)    temp1 += image[j  +(i-1)*ny] * 0.5/5.0;
-      if (i < nx-1) temp1 += image[j  +(i+1)*ny] * 0.5/5.0;
+      if (j > 0)    temp1 += image[j-1+i*ny] * 0.5/5.0; //left
+      if (j < ny-1) temp1 += image[j+1+i*ny] * 0.5/5.0; //right
+
+      if (i > 0)    temp1 += image[j  +(i-1)*ny] * 0.5/5.0; //up
+      if (i < nx-1) temp1 += image[j  +(i+1)*ny] * 0.5/5.0; //down
      
       tmp_image[j+i*ny] = temp1;
     }
