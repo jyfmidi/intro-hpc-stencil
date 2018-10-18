@@ -41,9 +41,20 @@ int main(int argc, char *argv[]) {
 
 
   // Output
-  printf("------------------------------------\n");
-  printf(" runtime: %lf s\n", toc-tic);
-  printf("------------------------------------\n");
+  // printf("------------------------------------\n");
+  // printf(" runtime: %lf s\n", toc-tic);
+  // printf("------------------------------------\n");
+  printf("|￣￣￣￣￣￣￣￣|\n");
+  printf("|    runtime:    |\n");
+  printf("|   %.6lf s   |\n",toc-tic);
+  printf("|                |\n");
+  printf("|    too slow!   |\n");
+  printf("|   you idiot!   |\n");
+  printf("|＿＿＿＿＿＿＿＿|\n");
+  printf(" (\\__/) ||\n");
+  printf(" (•ㅅ•) || \n");
+  printf(" / 　 づ\n");
+  printf("\n\n");
 
   output_image(OUTPUT_FILE, nx, ny, image);
   free(image);
@@ -52,11 +63,13 @@ int main(int argc, char *argv[]) {
 void stencil(const int nx, const int ny, double *  image, double *  tmp_image) {
   for (int j = 0; j < ny; ++j) {
     for (int i = 0; i < nx; ++i) {
-      tmp_image[j+i*ny] = image[j+i*ny] * 3.0/5.0;
-      if (i > 0)    tmp_image[j+i*ny] += image[j  +(i-1)*ny] * 0.5/5.0;
-      if (i < nx-1) tmp_image[j+i*ny] += image[j  +(i+1)*ny] * 0.5/5.0;
-      if (j > 0)    tmp_image[j+i*ny] += image[j-1+i*ny] * 0.5/5.0;
-      if (j < ny-1) tmp_image[j+i*ny] += image[j+1+i*ny] * 0.5/5.0;
+      double temp1 = 0;
+      temp1 = image[j+i*ny] * 3.0/5.0;
+      if (i > 0)    temp1 += image[j  +(i-1)*ny] * 0.5/5.0;
+      if (i < nx-1) temp1 += image[j  +(i+1)*ny] * 0.5/5.0;
+      if (j > 0)    temp1 += image[j-1+i*ny] * 0.5/5.0;
+      if (j < ny-1) temp1 += image[j+1+i*ny] * 0.5/5.0;
+      tmp_image[j+i*ny] = temp1;
     }
   }
 }
