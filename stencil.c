@@ -58,8 +58,8 @@ int main(int argc, char *argv[]) {
   output_image(OUTPUT_FILE, nx, ny, image);
   free(image);
 }
-#define LEFT
-void stencil(const int nx, const int ny, double *  image, double *  tmp_image) {
+
+void stencil(const int nx, const int ny, double * restrict image, double * restrict tmp_image) {
   // ny j  0 1 2 3
   // nx i  -------
   // 0    |a b c d
@@ -78,10 +78,8 @@ void stencil(const int nx, const int ny, double *  image, double *  tmp_image) {
       temp1 = image[j+i*ny] * 3.0/5.0;
       if (j > 0)    temp1 += image[j-1+i*ny] * 0.5/5.0; //left
       if (j < ny-1) temp1 += image[j+1+i*ny] * 0.5/5.0; //right
-
       if (i > 0)    temp1 += image[j  +(i-1)*ny] * 0.5/5.0; //up
       if (i < nx-1) temp1 += image[j  +(i+1)*ny] * 0.5/5.0; //down
-     
       tmp_image[j+i*ny] = temp1;
     }
   }
