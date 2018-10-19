@@ -75,11 +75,11 @@ void stencil(const int nx, const int ny, double * restrict image, double * restr
   for (int i = 0; i < nx; ++i) {
     for (int j = 0; j < ny; ++j) {
       double temp1 = 0;
-      temp1 = image[j+i*ny] * 3.0/5.0;
-      if (j > 0)    temp1 += image[j-1+i*ny] * 0.5/5.0; //left
-      if (j < ny-1) temp1 += image[j+1+i*ny] * 0.5/5.0; //right
-      if (i > 0)    temp1 += image[j  +(i-1)*ny] * 0.5/5.0; //up
-      if (i < nx-1) temp1 += image[j  +(i+1)*ny] * 0.5/5.0; //down
+      temp1 = image[j+i*ny] * 0.6;
+      if (j > 0)    temp1 += image[j-1+i*ny] * 0.1; //left
+      if (j < ny-1) temp1 += image[j+1+i*ny] * 0.1; //right
+      if (i > 0)    temp1 += image[j  +(i-1)*ny] * 0.1; //up
+      if (i < nx-1) temp1 += image[j  +(i+1)*ny] * 0.1; //down
       tmp_image[j+i*ny] = temp1;
     }
   }
