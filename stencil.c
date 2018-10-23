@@ -53,36 +53,44 @@ int main(int argc, char *argv[]) {
   printf("|＿＿＿＿＿＿＿＿|\n");
   printf(" (\\__/) ||\n");
   printf(" (•ㅅ•) || \n");
-  printf(" / 　 づ\n\n");
+  printf(" / 　 づ \n");
 
   output_image(OUTPUT_FILE, nx, ny, image);
   free(image);
 }
 
 void stencil(const int nx, const int ny, double * restrict image, double * restrict tmp_image) {
-  // ny j  0 1 2 3
-  // nx i  -------
-  // 0    |a b c d
-  // 1    |e<f g h
-  // 2    |i j k l
-  //
-  // ny = 4, nx = 3
-  // e(i=1,j=0), 
-  // a(i=0,j=0)=image[0], up
-  // f(i=1,j=1)=image[5], right
-  // i(i=2,j=0)=image[j+i*ny], down
-
-  for (int i = 0; i < nx; ++i) {
-    for (int j = 0; j < ny; ++j) {
-      double temp1 = 0;
-      temp1 = image[j+i*ny] * 0.6;
-      if (j > 0)    temp1 += image[j-1+i*ny] * 0.1; //left
-      if (j < ny-1) temp1 += image[j+1+i*ny] * 0.1; //right
-      if (i > 0)    temp1 += image[j  +(i-1)*ny] * 0.1; //up
-      if (i < nx-1) temp1 += image[j  +(i+1)*ny] * 0.1; //down
-      tmp_image[j+i*ny] = temp1;
+  //i=0;j=0, no left, no up
+  tmp_image[0] = image[0] * 0.6 + image[1] * 0.1 + image[ny] * 0.1;
+  //top edge, i=0, no up
+  for(int j = 1; j < ny-1; ++j)
+    tmp_image[j] = image[j] * 0.6 + image[j-1] * 0.1 + image[j+1] * 0.1 + image[j+ny] * 0.1;
+  //i=0;j=ny-1, no right, no up
+  tmp_image[ny-1] = image[ny-1] * 0.6 + image[ny-2] * 0.1 + image[ny+ny-1] * 0.1;
+ 
+  for (int i = 1; i < nx-1; ++i) {
+    //left pixel, j=0, no left
+    tmp_image[i*ny] = image[i*ny] * 0.6 + image[1+i*ny] * 0.1 + image[(i-1)*ny] * 0.1 + image[(i+1)*ny] * 0.1;
+    for (int j = 1; j < ny-1; ++j) {
+      // double temp1 = 0;
+      // temp1 = image[j+i*ny] * 0.6;
+      // if (j > 0)    temp1 += image[j-1+i*ny] * 0.1; //left
+      // if (j < ny-1) temp1 += image[j+1+i*ny] * 0.1; //right
+      // if (i > 0)    temp1 += image[j+(i-1)*ny] * 0.1; //up
+      // if (i < nx-1) temp1 += image[j+(i+1)*ny] * 0.1; //down
+      tmp_image[j+i*ny] = image[j+i*ny] * 0.6 + image[j-1+i*ny] * 0.1 + image[j+1+i*ny] * 0.1 + image[j+(i-1)*ny] * 0.1 + image[j+(i+1)*ny] * 0.1;
     }
+     //right pixel, j=ny-1, no right
+    tmp_image[ny-1+i*ny] = image[ny-1+i*ny] * 0.6 + image[ny-2+i*ny] * 0.1 + image[ny-1+(i-1)*ny] * 0.1 + image[ny-1+(i+1)*ny] * 0.1;
+
   }
+  //i=nx-1;j=0, no left, no down
+  tmp_image[(nx-1)*ny] = image[(nx-1)*ny] * 0.6 + image[(nx-1)*ny+1] * 0.1 +image[(nx-2)*ny] * 0.1;
+  //bottom edge, i=nx-1, no bottom
+  for(int j = 1; j < ny-1; ++j)
+    tmp_image[j+(nx-1)*ny] = image[j+(nx-1)*ny] * 0.6 + image[j-1+(nx-1)*ny] * 0.1 + image[j+1+(nx-1)*ny]* 0.1 + image[j+(nx-2)*ny] * 0.1;
+    //i=nx-1.j=ny-1, no right, no down
+  tmp_image[(nx-1)*ny+(ny-1)] = image[(nx-1)*ny+(ny-1)]*0.6 + image[(nx-1)*ny+(ny-2)] * 0.1 + image[(nx-2)*ny+(ny-1)] * 0.1;
 }
 
 // Create the input image
