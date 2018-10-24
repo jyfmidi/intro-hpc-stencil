@@ -1,11 +1,11 @@
 #!/bin/bash
-#PBS -N stencil
+#PBS -N \\(TAT)/ too slow
 #PBS -o stencil.out
 #PBS -joe
 #PBS -m a
 #PBS -qteaching
 #PBS -lnodes=1:ppn=16
-#PBS -lwalltime=00:10:00
+#PBS -lwalltime=00:00:20
 
 cd $PBS_O_WORKDIR
 
