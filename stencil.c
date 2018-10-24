@@ -32,6 +32,7 @@ int main(int argc, char *argv[]) {
   init_image(nx, ny, image, tmp_image);
 
   // Call the stencil kernel
+  for(int i = 0; i<10;i++){
   double tic = wtime();
   for (int t = 0; t < niters; ++t) {
     stencil(nx, ny, image, tmp_image);
@@ -40,20 +41,19 @@ int main(int argc, char *argv[]) {
   double toc = wtime();
 
 
-  // Output
-  // printf("------------------------------------\n");
-  // printf(" runtime: %lf s\n", toc-tic);
-  // printf("------------------------------------\n");
-  printf("|￣￣￣￣￣￣￣￣|\n");
-  printf("|    runtime:    |\n");
-  printf("|   %.6lf s   |\n",toc-tic);
-  printf("|                |\n");
-  printf("|    too slow!   |\n");
-  printf("|   you idiot~!  |\n");
-  printf("|＿＿＿＿＿＿＿＿|\n");
-  printf(" (\\__/) ||\n");
-  printf(" (•ㅅ•) || \n");
-  printf(" / 　 づ\n");
+  //Output
+  printf("%.5lf ", toc-tic);
+  }
+  // printf("|￣￣￣￣￣￣￣￣|\n");
+  // printf("|    runtime:    |\n");
+  // printf("|   %.6lf s   |\n",toc-tic);
+  // printf("|                |\n");
+  // printf("|    too slow!   |\n");
+  // printf("|   you idiot~!  |\n");
+  // printf("|＿＿＿＿＿＿＿＿|\n");
+  // printf(" (\\__/) ||\n");
+  // printf(" (•ㅅ•) || \n");
+  // printf(" / 　 づ\n");
 
   output_image(OUTPUT_FILE, nx, ny, image);
   free(image);
