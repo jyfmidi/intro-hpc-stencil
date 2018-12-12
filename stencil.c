@@ -32,7 +32,6 @@ int main(int argc, char *argv[]) {
   init_image(nx, ny, image, tmp_image);
 
   // Call the stencil kernel
-  for(int i = 0; i<10;i++){
   double tic = wtime();
   for (int t = 0; t < niters; ++t) {
     stencil(nx, ny, image, tmp_image);
@@ -41,9 +40,11 @@ int main(int argc, char *argv[]) {
   double toc = wtime();
 
 
-  //Output
-  printf("%.5lf ", toc-tic);
-  }
+   // Output
+  printf("------------------------------------\n");
+  printf(" runtime: %lf s\n", toc-tic);
+  printf("------------------------------------\n");
+
   // printf("|￣￣￣￣￣￣￣￣|\n");
   // printf("|    runtime:    |\n");
   // printf("|   %.6lf s   |\n",toc-tic);
@@ -59,25 +60,38 @@ int main(int argc, char *argv[]) {
   free(image);
 }
 
+// void stencil(const int nx, const int ny, float * restrict image, float * restrict tmp_image) {
+// #pragma omp parallel for
+//   for (int i = 0; i < nx; ++i) {
+//     #pragma omp simd
+//     for (int j = 0; j < ny; ++j) {
+//       float temp = 0;
+//       temp = image[j+i*ny] * 0.6f;
+//       if (j > 0)    temp += image[j-1+i*ny] * 0.1f;
+//       if (j < ny-1) temp += image[j+1+i*ny] * 0.1f;
+//       if (i > 0)    temp += image[j  +(i-1)*ny] * 0.1f;
+//       if (i < nx-1) temp += image[j  +(i+1)*ny] * 0.1f;
+//       tmp_image[j+i*ny] = temp;
+//     }
+//   }
+// }
+
 void stencil(const int nx, const int ny, float * restrict image, float * restrict tmp_image) {
   //i=0;j=0, no left, no up
   tmp_image[0] = image[0] * 0.6f + image[1] * 0.1f + image[ny] * 0.1f;
   //top edge, i=0, no up
+  #pragma omp simd
   for(int j = 1; j < ny-1; ++j)
     tmp_image[j] = image[j] * 0.6f + image[j-1] * 0.1f + image[j+1] * 0.1f + image[j+ny] * 0.1f;
   //i=0;j=ny-1, no right, no up
   tmp_image[ny-1] = image[ny-1] * 0.6f + image[ny-2] * 0.1f + image[ny+ny-1] * 0.1f;
- 
+
+  #pragma omp parallel for
   for (int i = 1; i < nx-1; ++i) {
     //left pixel, j=0, no left
     tmp_image[i*ny] = image[i*ny] * 0.6f + image[1+i*ny] * 0.1f + image[(i-1)*ny] * 0.1f + image[(i+1)*ny] * 0.1f;
+    #pragma omp simd
     for (int j = 1; j < ny-1; ++j) {
-      // float temp1 = 0;
-      // temp1 = image[j+i*ny] * 0.6f;
-      // if (j > 0)    temp1 += image[j-1+i*ny] * 0.1f; //left
-      // if (j < ny-1) temp1 += image[j+1+i*ny] * 0.1f; //right
-      // if (i > 0)    temp1 += image[j+(i-1)*ny] * 0.1f; //up
-      // if (i < nx-1) temp1 += image[j+(i+1)*ny] * 0.1f; //down
       tmp_image[j+i*ny] = image[j+i*ny] * 0.6f + image[j-1+i*ny] * 0.1f + image[j+1+i*ny] * 0.1f + image[j+(i-1)*ny] * 0.1f + image[j+(i+1)*ny] * 0.1f;
     }
      //right pixel, j=ny-1, no right
@@ -87,6 +101,7 @@ void stencil(const int nx, const int ny, float * restrict image, float * restric
   //i=nx-1;j=0, no left, no down
   tmp_image[(nx-1)*ny] = image[(nx-1)*ny] * 0.6f + image[(nx-1)*ny+1] * 0.1f +image[(nx-2)*ny] * 0.1f;
   //bottom edge, i=nx-1, no bottom
+  #pragma omp simd
   for(int j = 1; j < ny-1; ++j)
     tmp_image[j+(nx-1)*ny] = image[j+(nx-1)*ny] * 0.6f + image[j-1+(nx-1)*ny] * 0.1f + image[j+1+(nx-1)*ny]* 0.1f + image[j+(nx-2)*ny] * 0.1f;
   //i=nx-1.j=ny-1, no right, no down
