@@ -42,6 +42,7 @@ int main(int argc, char *argv[]) {
     int right;             /* the rank of the process to the right */
     int size;              /* number of processes in the communicator */
     int tag = 0;           /* scope for adding extra information to a message */
+    int tag1 = 1;
     MPI_Status status;     /* struct used by MPI_Recv */
     int local_nrows;       /* number of rows apportioned to this rank */
     int local_ncols;       /* number of columns apportioned to this rank */
@@ -52,10 +53,7 @@ int main(int argc, char *argv[]) {
     float *recvbuf;       /* buffer to hold received values */
     float *printbuf;      /* buffer to hold values for printing */
 
-
-
-
-    /* 
+    /*
     ** MPI_Init returns once it has started up processes
     ** Get size of cohort and rank for this process
     */
@@ -63,14 +61,14 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    /* 
+    /*
     ** determine process ranks to the left and right of rank
     ** respecting periodic boundary conditions
     */
     left = (rank == MASTER) ? (rank + size - 1) : (rank - 1);
     right = (rank + 1) % size;
 
-    /* 
+    /*
     ** determine local grid size
     ** each rank gets all the rows, but a subset of the number of columns
     */
@@ -100,11 +98,9 @@ int main(int argc, char *argv[]) {
     ** initialize the local grid (w):
     ** - core cells are set to the value of the rank
     ** - halo cells are inititalised to a -ve value
-    ** note the looping bounds for index jj is modified 
+    ** note the looping bounds for index jj is modified
     ** to accomodate the extra halo columns
     */
-    printf("first of rank %d : %f\n", rank, image[rank * (NCOLS / size)]);
-
     for (ii = 0; ii < local_nrows; ii++) {
         for (jj = 0; jj < local_ncols + 2; jj++) {
             if (jj > 0 && jj < (local_ncols + 1))
@@ -116,42 +112,6 @@ int main(int argc, char *argv[]) {
     }
 
     /*
-    ** Master rank prints out the initialised grid.
-    ** Proceeding row-by-row:
-    ** - the master rank prints it's values, including the halo
-    ** - space
-    ** - the values for rows from the other ranks are received
-    **   by the master, and printed
-    ** - ranks other than the master send their row values to the master 
-    */
-    if (rank == MASTER) {
-        printf("NROWS: %d\nNCOLS: %d\n", NROWS, NCOLS);
-        printf("Initialised grid:\n");
-    }
-    for (ii = 0; ii < local_nrows; ii++) {
-        if (rank == MASTER) {
-            for (jj = 0; jj < local_ncols + 2; jj++) {
-                printf("%2.1f ", w[ii * (local_ncols + 2) + jj]);
-            }
-            printf(" ");
-            for (kk = 1; kk < size; kk++) {
-                remote_ncols = calc_ncols_from_rank(kk, size);
-                MPI_Recv(printbuf, remote_ncols + 2, MPI_DOUBLE, kk, tag, MPI_COMM_WORLD, &status);
-                for (jj = 0; jj < remote_ncols + 2; jj++) {
-                    printf("%2.1f ", printbuf[jj]);
-                }
-                printf(" ");
-            }
-            printf("\n");
-        } else {
-            MPI_Send(&w[ii * (local_ncols + 2)], local_ncols + 2, MPI_DOUBLE, MASTER, tag, MPI_COMM_WORLD);
-        }
-    }
-    if (rank == MASTER)
-        printf("\n");
-
-    double tic = wtime();
-    /*
     ** halo exchange for the local grids w:
     ** - first send to the left and receive from the right,
     ** - then send to the right and receive from the left.
@@ -161,12 +121,12 @@ int main(int argc, char *argv[]) {
     ** - unpack values from the recieve buffer into the grid
     */
 
-    // ## PHASE 1
+    // ## PHASE 1: w->u
     /* send to the left, receive from right */
     for (ii = 0; ii < local_nrows; ii++)
         sendbuf[ii] = w[ii * (local_ncols + 2) + 1];
-    MPI_Sendrecv(sendbuf, local_nrows, MPI_DOUBLE, left, tag,
-                 recvbuf, local_nrows, MPI_DOUBLE, right, tag,
+    MPI_Sendrecv(sendbuf, local_nrows, MPI_FLOAT, left, tag,
+                 recvbuf, local_nrows, MPI_FLOAT, right, tag,
                  MPI_COMM_WORLD, &status);
     if (rank < size - 1) {
         for (ii = 0; ii < local_nrows; ii++)
@@ -178,8 +138,8 @@ int main(int argc, char *argv[]) {
     /* send to the right, receive from left */
     for (ii = 0; ii < local_nrows; ii++)
         sendbuf[ii] = w[ii * (local_ncols + 2) + local_ncols];
-    MPI_Sendrecv(sendbuf, local_nrows, MPI_DOUBLE, right, tag,
-                 recvbuf, local_nrows, MPI_DOUBLE, left, tag,
+    MPI_Sendrecv(sendbuf, local_nrows, MPI_FLOAT, right, tag,
+                 recvbuf, local_nrows, MPI_FLOAT, left, tag,
                  MPI_COMM_WORLD, &status);
     if (rank > 0) {
         for (ii = 0; ii < local_nrows; ii++)
@@ -189,88 +149,103 @@ int main(int argc, char *argv[]) {
             w[ii * (local_ncols + 2)] = 0;
     }
 
-    stencil(local_nrows, local_ncols + 2, w, u);
+    double tic = wtime();
 
+    for (int iter = 0; iter < NITERS; iter++) {
+        stencil(local_nrows, local_ncols + 2, w, u);
 
-    // ## PHASE 2
-    // swapping after first computing
-    for (ii = 0; ii < local_nrows; ii++)
-        sendbuf[ii] = u[ii * (local_ncols + 2) + 1];
-    MPI_Sendrecv(sendbuf, local_nrows, MPI_DOUBLE, left, tag,
-                 recvbuf, local_nrows, MPI_DOUBLE, right, tag,
-                 MPI_COMM_WORLD, &status);
-    if (rank < size - 1) {
+        // ## PHASE 2 u->w
+        // swapping after first computing
         for (ii = 0; ii < local_nrows; ii++)
-            u[ii * (local_ncols + 2) + local_ncols + 1] = recvbuf[ii];
-    } else {
-        for (ii = 0; ii < local_nrows; ii++)
-            u[ii * (local_ncols + 2) + local_ncols + 1] = 0;
-    }
-    /* send to the right, receive from left */
-    for (ii = 0; ii < local_nrows; ii++)
-        sendbuf[ii] = u[ii * (local_ncols + 2) + local_ncols];
-    MPI_Sendrecv(sendbuf, local_nrows, MPI_DOUBLE, right, tag,
-                 recvbuf, local_nrows, MPI_DOUBLE, left, tag,
-                 MPI_COMM_WORLD, &status);
-    if (rank > 0) {
-        for (ii = 0; ii < local_nrows; ii++)
-            u[ii * (local_ncols + 2)] = recvbuf[ii];
-    } else {
-        for (ii = 0; ii < local_nrows; ii++)
-            u[ii * (local_ncols + 2)] = 0;
-    }
-
-    stencil(local_nrows, local_ncols + 2, u, w);
-
-    /*
-    ** Master rank prints out the grid after the halo-exchange
-    */
-    if (rank == MASTER) {
-        printf("Grid after halo-exchange.\n");
-        printf("Notice that:\n");
-        printf(" - the core cells are unchanged\n");
-        printf(" - the halo cells now have values derived\n");
-        printf("   from the core cells of neighbouring ranks\n");
-    }
-    for (ii = 0; ii < local_nrows; ii++) {
-        if (rank == MASTER) {
-            for (jj = 0; jj < local_ncols + 2; jj++) {
-                printf("%2.1f ", w[ii * (local_ncols + 2) + jj]);
-            }
-            printf(" ");
-            for (kk = 1; kk < size; kk++) { /* loop over other ranks */
-                remote_ncols = calc_ncols_from_rank(kk, size);
-                MPI_Recv(printbuf, remote_ncols + 2, MPI_DOUBLE, kk, tag, MPI_COMM_WORLD, &status);
-                for (jj = 0; jj < remote_ncols + 2; jj++) {
-                    printf("%2.1f ", printbuf[jj]);
-                }
-                printf(" ");
-            }
-            printf("\n");
+            sendbuf[ii] = u[ii * (local_ncols + 2) + 1];
+        MPI_Sendrecv(sendbuf, local_nrows, MPI_DOUBLE, left, tag1,
+                     recvbuf, local_nrows, MPI_DOUBLE, right, tag1,
+                     MPI_COMM_WORLD, &status);
+        if (rank < size - 1) {
+            for (ii = 0; ii < local_nrows; ii++)
+                u[ii * (local_ncols + 2) + local_ncols + 1] = recvbuf[ii];
         } else {
-            MPI_Send(&w[ii * (local_ncols + 2)], local_ncols + 2, MPI_DOUBLE, MASTER, tag, MPI_COMM_WORLD);
+            for (ii = 0; ii < local_nrows; ii++)
+                u[ii * (local_ncols + 2) + local_ncols + 1] = 0;
+        }
+        /* send to the right, receive from left */
+        for (ii = 0; ii < local_nrows; ii++)
+            sendbuf[ii] = u[ii * (local_ncols + 2) + local_ncols];
+        MPI_Sendrecv(sendbuf, local_nrows, MPI_DOUBLE, right, tag1,
+                     recvbuf, local_nrows, MPI_DOUBLE, left, tag1,
+                     MPI_COMM_WORLD, &status);
+        if (rank > 0) {
+            for (ii = 0; ii < local_nrows; ii++)
+                u[ii * (local_ncols + 2)] = recvbuf[ii];
+        } else {
+            for (ii = 0; ii < local_nrows; ii++)
+                u[ii * (local_ncols + 2)] = 0;
+        }
+
+        stencil(local_nrows, local_ncols + 2, u, w);
+
+        for (ii = 0; ii < local_nrows; ii++)
+            sendbuf[ii] = w[ii * (local_ncols + 2) + 1];
+        MPI_Sendrecv(sendbuf, local_nrows, MPI_FLOAT, left, tag,
+                     recvbuf, local_nrows, MPI_FLOAT, right, tag,
+                     MPI_COMM_WORLD, &status);
+        if (rank < size - 1) {
+            for (ii = 0; ii < local_nrows; ii++)
+                w[ii * (local_ncols + 2) + local_ncols + 1] = recvbuf[ii];
+        } else {
+            for (ii = 0; ii < local_nrows; ii++)
+                w[ii * (local_ncols + 2) + local_ncols + 1] = 0;
+        }
+        /* send to the right, receive from left */
+        for (ii = 0; ii < local_nrows; ii++)
+            sendbuf[ii] = w[ii * (local_ncols + 2) + local_ncols];
+        MPI_Sendrecv(sendbuf, local_nrows, MPI_FLOAT, right, tag,
+                     recvbuf, local_nrows, MPI_FLOAT, left, tag,
+                     MPI_COMM_WORLD, &status);
+        if (rank > 0) {
+            for (ii = 0; ii < local_nrows; ii++)
+                w[ii * (local_ncols + 2)] = recvbuf[ii];
+        } else {
+            for (ii = 0; ii < local_nrows; ii++)
+                w[ii * (local_ncols + 2)] = 0;
         }
     }
-    if (rank == MASTER)
-        printf("\n");
 
-     double toc = wtime();
+    double toc = wtime();
 
-
-     if (rank == MASTER) {
+    if (rank == MASTER) {
         printf("master here");
         printf("------------------------------------\n");
         printf(" runtime: %lf s\n", toc - tic);
         printf("------------------------------------\n");
-        output_image(OUTPUT_FILE, nx, ny, image);
+    }
+
+    // ignore the halo
+    int idx = 0;
+    for (ii = 0; ii < local_nrows; ii++) {
+        if (rank == MASTER) {
+            for (jj = 1; jj < local_ncols + 1; jj++) {
+                tmp_image[idx++] = u[ii * (local_ncols + 2) + jj];
+            }
+            for (kk = 1; kk < size; kk++) { /* loop over other ranks */
+                remote_ncols = calc_ncols_from_rank(kk, size);
+                MPI_Recv(printbuf, remote_ncols + 2, MPI_DOUBLE, kk, tag1, MPI_COMM_WORLD, &status);
+                for (jj = 1; jj < remote_ncols + 1; jj++) {
+                    tmp_image[idx++] = printbuf[jj];
+                }
+            }
+        } else {
+            MPI_Send(&w[ii * (local_ncols + 2)], local_ncols + 2, MPI_DOUBLE, MASTER, tag1, MPI_COMM_WORLD);
+        }
+    }
+    if (rank == MASTER) {
+        output_image(OUTPUT_FILE, nx, ny, tmp_image);
     }
 
     /* don't forget to tidy up when we're done */
     MPI_Finalize();
-
-    free(image);
-    /* free up allocated memory */
     free(w);
+    free(u);
     free(sendbuf);
     free(recvbuf);
     free(printbuf);
@@ -356,14 +331,16 @@ void init_image(const int nx, const int ny, float *image, float *tmp_image) {
 
 // Routine to output the image in Netpbm grayscale binary image format
 void output_image(const char *file_name, const int nx, const int ny, float *image) {
-
+    printf("start output\n");
     // Open output file
     FILE *fp = fopen(file_name, "w");
+    printf("bp 1\n");
     if (!fp) {
         fprintf(stderr, "Error: Could not open %s\n", OUTPUT_FILE);
         exit(EXIT_FAILURE);
     }
 
+    printf("bp 1\n");
     // Ouptut image header
     fprintf(fp, "P5 %d %d 255\n", nx, ny);
 
@@ -377,13 +354,14 @@ void output_image(const char *file_name, const int nx, const int ny, float *imag
                 maximum = image[j + i * ny];
         }
     }
-
+    printf("bp 2\n");
     // Output image, converting to numbers 0-255
     for (int j = 0; j < ny; ++j) {
         for (int i = 0; i < nx; ++i) {
             fputc((char) (255.0f * image[j + i * ny] / maximum), fp);
         }
     }
+    printf("print done\n");
 
     // Close the file
     fclose(fp);
