@@ -6,8 +6,8 @@
 
 // Define output file name
 #define OUTPUT_FILE "stencil.pgm"
-#define NROWS 8
-#define NCOLS 8
+#define NROWS 16
+#define NCOLS 16
 #define NITERS 100
 #define MASTER 0
 
