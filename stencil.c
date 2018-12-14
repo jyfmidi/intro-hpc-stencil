@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
     ** each rank gets all the rows, but a subset of the number of columns
     */
     local_nrows = nx;
-    local_ncols = calc_ncols_from_rank(rank, size ny);
+    local_ncols = calc_ncols_from_rank(rank, size, ny);
     if (local_ncols < 1) {
         fprintf(stderr, "Error: too many processes:- local_ncols < 1\n");
         MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
     recvbuf = (float *) malloc(sizeof(float) * local_nrows);
     /* The last rank has the most columns apportioned.
        printbuf must be big enough to hold this number */
-    remote_ncols = calc_ncols_from_rank(size - 1, size);
+    remote_ncols = calc_ncols_from_rank(size - 1, size, ny);
     printbuf = (float *) malloc(sizeof(float) * (remote_ncols + 2));
 
     /*
@@ -149,17 +149,18 @@ int main(int argc, char *argv[]) {
             w[ii * (local_ncols + 2)] = 0;
     }
 
+
     double tic = wtime();
 
-    for (int iter = 0; iter < NITERS; iter++) {
+    for (int iter = 0; iter < 1; iter++) {
         stencil(local_nrows, local_ncols + 2, w, u);
 
         // ## PHASE 2 u->w
         // swapping after first computing
         for (ii = 0; ii < local_nrows; ii++)
             sendbuf[ii] = u[ii * (local_ncols + 2) + 1];
-        MPI_Sendrecv(sendbuf, local_nrows, MPI_DOUBLE, left, tag1,
-                     recvbuf, local_nrows, MPI_DOUBLE, right, tag1,
+        MPI_Sendrecv(sendbuf, local_nrows, MPI_FLOAT, left, tag,
+                     recvbuf, local_nrows, MPI_FLOAT, right, tag,
                      MPI_COMM_WORLD, &status);
         if (rank < size - 1) {
             for (ii = 0; ii < local_nrows; ii++)
@@ -171,8 +172,8 @@ int main(int argc, char *argv[]) {
         /* send to the right, receive from left */
         for (ii = 0; ii < local_nrows; ii++)
             sendbuf[ii] = u[ii * (local_ncols + 2) + local_ncols];
-        MPI_Sendrecv(sendbuf, local_nrows, MPI_DOUBLE, right, tag1,
-                     recvbuf, local_nrows, MPI_DOUBLE, left, tag1,
+        MPI_Sendrecv(sendbuf, local_nrows, MPI_FLOAT, right, tag,
+                     recvbuf, local_nrows, MPI_FLOAT, left, tag,
                      MPI_COMM_WORLD, &status);
         if (rank > 0) {
             for (ii = 0; ii < local_nrows; ii++)
@@ -209,6 +210,7 @@ int main(int argc, char *argv[]) {
             for (ii = 0; ii < local_nrows; ii++)
                 w[ii * (local_ncols + 2)] = 0;
         }
+
     }
 
     double toc = wtime();
@@ -220,27 +222,27 @@ int main(int argc, char *argv[]) {
         printf("------------------------------------\n");
     }
 
-    // ignore the halo
-    int idx = 0;
-    for (ii = 0; ii < local_nrows; ii++) {
-        if (rank == MASTER) {
-            for (jj = 1; jj < local_ncols + 1; jj++) {
-                tmp_image[idx++] = u[ii * (local_ncols + 2) + jj];
-            }
-            for (kk = 1; kk < size; kk++) { /* loop over other ranks */
-                remote_ncols = calc_ncols_from_rank(kk, size);
-                MPI_Recv(printbuf, remote_ncols + 2, MPI_FLOAT, kk, tag1, MPI_COMM_WORLD, &status);
-                for (jj = 1; jj < remote_ncols + 1; jj++) {
-                    tmp_image[idx++] = printbuf[jj];
-                }
-            }
-        } else {
-            MPI_Send(&w[ii * (local_ncols + 2)], local_ncols + 2, MPI_FLOAT, MASTER, tag1, MPI_COMM_WORLD);
-        }
-    }
-    if (rank == MASTER) {
-        output_image(OUTPUT_FILE, nx, ny, tmp_image);
-    }
+    // // ignore the halo
+    // int idx = 0;
+    // for (ii = 0; ii < local_nrows; ii++) {
+    //     if (rank == MASTER) {
+    //         for (jj = 1; jj < local_ncols + 1; jj++) {
+    //             tmp_image[idx++] = u[ii * (local_ncols + 2) + jj];
+    //         }
+    //         for (kk = 1; kk < size; kk++) { /* loop over other ranks */
+    //             remote_ncols = calc_ncols_from_rank(kk, size);
+    //             MPI_Recv(printbuf, remote_ncols + 2, MPI_FLOAT, kk, tag1, MPI_COMM_WORLD, &status);
+    //             for (jj = 1; jj < remote_ncols + 1; jj++) {
+    //                 tmp_image[idx++] = printbuf[jj];
+    //             }
+    //         }
+    //     } else {
+    //         MPI_Send(&w[ii * (local_ncols + 2)], local_ncols + 2, MPI_FLOAT, MASTER, tag1, MPI_COMM_WORLD);
+    //     }
+    // }
+    // if (rank == MASTER) {
+    //     output_image(OUTPUT_FILE, nx, ny, tmp_image);
+    // }
 
     /* don't forget to tidy up when we're done */
     MPI_Finalize();
