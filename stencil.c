@@ -19,22 +19,10 @@ void output_image(const char *file_name, const int nx, const int ny, float *imag
 
 double wtime(void);
 
-int calc_ncols_from_rank(int rank, int size);
+int calc_ncols_from_rank(int rank, int size, int ny);
 
 int main(int argc, char *argv[]) {
     // Initiliase problem dimensions from command line arguments
-    int nx = NROWS;
-    int ny = NCOLS;
-    int niters = NITERS;
-
-    // Allocate the image
-    float *image = malloc(sizeof(float) * nx * ny);
-    float *tmp_image = malloc(sizeof(float) * nx * ny);
-
-    // Set the input image
-    init_image(nx, ny, image, tmp_image);
-
-
     int ii, jj;             /* row and column indices for the grid */
     int kk;                /* index for looping over ranks */
     int rank;              /* the rank of this process */
@@ -61,6 +49,18 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
+    int nx = atoi(argv[1]);
+    int ny = atoi(argv[2]);
+    int niters = atoi(argv[3]);
+
+    // Allocate the image
+    float *image = malloc(sizeof(float) * nx * ny);
+    float *tmp_image = malloc(sizeof(float) * nx * ny);
+
+    // Set the input image
+    init_image(nx, ny, image, tmp_image);
+
+
     /*
     ** determine process ranks to the left and right of rank
     ** respecting periodic boundary conditions
@@ -72,8 +72,8 @@ int main(int argc, char *argv[]) {
     ** determine local grid size
     ** each rank gets all the rows, but a subset of the number of columns
     */
-    local_nrows = NROWS;
-    local_ncols = calc_ncols_from_rank(rank, size);
+    local_nrows = nx;
+    local_ncols = calc_ncols_from_rank(rank, size ny);
     if (local_ncols < 1) {
         fprintf(stderr, "Error: too many processes:- local_ncols < 1\n");
         MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
@@ -229,13 +229,13 @@ int main(int argc, char *argv[]) {
             }
             for (kk = 1; kk < size; kk++) { /* loop over other ranks */
                 remote_ncols = calc_ncols_from_rank(kk, size);
-                MPI_Recv(printbuf, remote_ncols + 2, MPI_DOUBLE, kk, tag1, MPI_COMM_WORLD, &status);
+                MPI_Recv(printbuf, remote_ncols + 2, MPI_FLOAT, kk, tag1, MPI_COMM_WORLD, &status);
                 for (jj = 1; jj < remote_ncols + 1; jj++) {
                     tmp_image[idx++] = printbuf[jj];
                 }
             }
         } else {
-            MPI_Send(&w[ii * (local_ncols + 2)], local_ncols + 2, MPI_DOUBLE, MASTER, tag1, MPI_COMM_WORLD);
+            MPI_Send(&w[ii * (local_ncols + 2)], local_ncols + 2, MPI_FLOAT, MASTER, tag1, MPI_COMM_WORLD);
         }
     }
     if (rank == MASTER) {
@@ -375,13 +375,13 @@ double wtime(void) {
     return tv.tv_sec + tv.tv_usec * 1e-6;
 }
 
-int calc_ncols_from_rank(int rank, int size) {
+int calc_ncols_from_rank(int rank, int size, int ny) {
     int ncols;
 
-    ncols = NCOLS / size;       /* integer division */
-    if ((NCOLS % size) != 0) {  /* if there is a remainder */
+    ncols = ny / size;       /* integer division */
+    if ((ny % size) != 0) {  /* if there is a remainder */
         if (rank == size - 1)
-            ncols += NCOLS % size;  /* add remainder to last rank */
+            ncols += ny % size;  /* add remainder to last rank */
     }
 
     return ncols;
