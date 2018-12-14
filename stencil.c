@@ -16,7 +16,7 @@ void output_image(const char *file_name, const int nx, const int ny, float *imag
 
 double wtime(void);
 
-int calc_ncols_from_rank(int rank, int size, int nx);
+int calc_nrows_from_rank(int rank, int size, int nx);
 
 int main(int argc, char *argv[]) {
     int ii, jj;             /* row and column indices for the grid */
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     MPI_Status status;     /* struct used by MPI_Recv */
     int local_nrows;       /* number of rows apportioned to this rank */
     int local_ncols;       /* number of columns apportioned to this rank */
-    //int remote_nrows;      /* number of columns apportioned to a remote rank */
+    int remote_nrows;      /* number of columns apportioned to a remote rank */
     float *w;             /* local temperature grid at time t     */
     float *u;             /* local temperature grid at time t     */
     float *sendbuf;       /* buffer to hold values to send */
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
     ** determine local grid size
     ** each rank gets all the rows, but a subset of the number of columns
     */
-    local_nrows = calc_ncols_from_rank(rank, size, nx);
+    local_nrows = calc_nrows_from_rank(rank, size, nx);
     local_ncols = nx;
     if (local_nrows < 1) {
         fprintf(stderr, "Error: too many processes:- local_ncols < 1\n");
@@ -86,7 +86,8 @@ int main(int argc, char *argv[]) {
     recvbuf = (float *) malloc(sizeof(float) * local_ncols);
     /* The last rank has the most columns apportioned.
        printbuf must be big enough to hold this number */
-    printbuf = (float *) malloc(sizeof(float) * local_nrows * local_ncols);
+    remote_nrows = calc_nrows_from_rank(size-1, size, nx); 
+    printbuf = (float *) malloc(sizeof(float) * remote_nrows * local_ncols);
 
     /*
     ** initialize the local grid (w):
@@ -195,10 +196,9 @@ int main(int argc, char *argv[]) {
     double toc = wtime();
 
     if (rank == MASTER) {
-        printf("master here");
-        printf("------------------------------------\n");
+        printf("------------\n");
         printf(" runtime: %lf s\n", toc - tic);
-        printf("------------------------------------\n");
+        printf("------------\n");
     }
 
     // // ignore the halo
@@ -210,8 +210,9 @@ int main(int argc, char *argv[]) {
             }
         }
         for(kk=1;kk<size;kk++){
-            MPI_Recv(printbuf,local_nrows*local_ncols,MPI_FLOAT,kk,tag, MPI_COMM_WORLD, &status);
-            for(int i=0;i<local_nrows;i++){
+            remote_nrows = calc_nrows_from_rank(kk, size, nx);
+            MPI_Recv(printbuf,remote_nrows*local_ncols,MPI_FLOAT,kk,tag, MPI_COMM_WORLD, &status);
+            for(int i=0;i<remote_nrows;i++){
                 for(int j=0;j<local_ncols;j++){
                     tmp_image[(kk*(nx/size)+i)*local_ncols+j] = printbuf[i*local_ncols+j];
                 }
@@ -361,7 +362,7 @@ double wtime(void) {
     return tv.tv_sec + tv.tv_usec * 1e-6;
 }
 
-int calc_ncols_from_rank(int rank, int size, int nx) {
+int calc_nrows_from_rank(int rank, int size, int nx) {
     int nrows;
 
     nrows = nx / size;       /* integer division */
