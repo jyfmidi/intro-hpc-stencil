@@ -6,9 +6,6 @@
 
 // Define output file name
 #define OUTPUT_FILE "stencil.pgm"
-#define NROWS 16
-#define NCOLS 16
-#define NITERS 100
 #define MASTER 0
 
 void stencil(const int nx, const int ny, float *image, float *tmp_image);
@@ -104,8 +101,8 @@ int main(int argc, char *argv[]) {
     for (ii = 0; ii < local_nrows; ii++) {
         for (jj = 0; jj < local_ncols + 2; jj++) {
             if (jj > 0 && jj < (local_ncols + 1))
-                w[ii * (local_ncols + 2) + jj] = image[ii * NCOLS + jj - 1 +
-                                                       rank * (NCOLS / size)];                 /* core cells */
+                w[ii * (local_ncols + 2) + jj] = image[ii * ny + jj - 1 +
+                                                       rank * (ny / size)];                 /* core cells */
             else if (jj == 0 || jj == (local_ncols + 1))
                 w[ii * (local_ncols + 2) + jj] = 0;                         /* halo cells */
         }
@@ -152,7 +149,7 @@ int main(int argc, char *argv[]) {
 
     double tic = wtime();
 
-    for (int iter = 0; iter < 1; iter++) {
+    for (int iter = 0; iter < niters; iter++) {
         stencil(local_nrows, local_ncols + 2, w, u);
 
         // ## PHASE 2 u->w
@@ -217,32 +214,32 @@ int main(int argc, char *argv[]) {
 
     if (rank == MASTER) {
         printf("master here");
-        printf("------------------------------------\n");
+        printf("--------------\n");
         printf(" runtime: %lf s\n", toc - tic);
-        printf("------------------------------------\n");
+        printf("--------------\n");
     }
 
-    // // ignore the halo
-    // int idx = 0;
-    // for (ii = 0; ii < local_nrows; ii++) {
-    //     if (rank == MASTER) {
-    //         for (jj = 1; jj < local_ncols + 1; jj++) {
-    //             tmp_image[idx++] = u[ii * (local_ncols + 2) + jj];
-    //         }
-    //         for (kk = 1; kk < size; kk++) { /* loop over other ranks */
-    //             remote_ncols = calc_ncols_from_rank(kk, size);
-    //             MPI_Recv(printbuf, remote_ncols + 2, MPI_FLOAT, kk, tag1, MPI_COMM_WORLD, &status);
-    //             for (jj = 1; jj < remote_ncols + 1; jj++) {
-    //                 tmp_image[idx++] = printbuf[jj];
-    //             }
-    //         }
-    //     } else {
-    //         MPI_Send(&w[ii * (local_ncols + 2)], local_ncols + 2, MPI_FLOAT, MASTER, tag1, MPI_COMM_WORLD);
-    //     }
-    // }
-    // if (rank == MASTER) {
-    //     output_image(OUTPUT_FILE, nx, ny, tmp_image);
-    // }
+    // ignore the halo
+    int idx = 0;
+    for (ii = 0; ii < local_nrows; ii++) {
+        if (rank == MASTER) {
+            for (jj = 1; jj < local_ncols + 1; jj++) {
+                tmp_image[idx++] = w[ii * (local_ncols + 2) + jj];
+            }
+            for (kk = 1; kk < size; kk++) { /* loop over other ranks */
+                remote_ncols = calc_ncols_from_rank(kk, size,ny);
+                MPI_Recv(printbuf, remote_ncols + 2, MPI_FLOAT, kk, tag1, MPI_COMM_WORLD, &status);
+                for (jj = 1; jj < remote_ncols + 1; jj++) {
+                    tmp_image[idx++] = printbuf[jj];
+                }
+            }
+        } else {
+            MPI_Send(&w[ii * (local_ncols + 2)], local_ncols + 2, MPI_FLOAT, MASTER, tag1, MPI_COMM_WORLD);
+        }
+    }
+    if (rank == MASTER) {
+        output_image(OUTPUT_FILE, nx, ny, tmp_image);
+    }
 
     /* don't forget to tidy up when we're done */
     MPI_Finalize();
@@ -333,16 +330,15 @@ void init_image(const int nx, const int ny, float *image, float *tmp_image) {
 
 // Routine to output the image in Netpbm grayscale binary image format
 void output_image(const char *file_name, const int nx, const int ny, float *image) {
-    printf("start output\n");
     // Open output file
     FILE *fp = fopen(file_name, "w");
-    printf("bp 1\n");
+    
     if (!fp) {
         fprintf(stderr, "Error: Could not open %s\n", OUTPUT_FILE);
         exit(EXIT_FAILURE);
     }
 
-    printf("bp 1\n");
+    
     // Ouptut image header
     fprintf(fp, "P5 %d %d 255\n", nx, ny);
 
@@ -356,14 +352,13 @@ void output_image(const char *file_name, const int nx, const int ny, float *imag
                 maximum = image[j + i * ny];
         }
     }
-    printf("bp 2\n");
+    
     // Output image, converting to numbers 0-255
     for (int j = 0; j < ny; ++j) {
         for (int i = 0; i < nx; ++i) {
             fputc((char) (255.0f * image[j + i * ny] / maximum), fp);
         }
     }
-    printf("print done\n");
 
     // Close the file
     fclose(fp);
