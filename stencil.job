@@ -1,11 +1,11 @@
 #!/bin/bash
-#PBS -N \\(TAT)/ too slow
+#PBS -N PeachGiveMePower
 #PBS -o stencil.out
 #PBS -joe
 #PBS -m a
 #PBS -qteaching
 #PBS -lnodes=1:ppn=16
-#PBS -lwalltime=00:00:20
+#PBS -lwalltime=00:20:00
 
 cd $PBS_O_WORKDIR
 
@@ -14,5 +14,20 @@ echo Time is `date`
 echo Directory is `pwd`
 echo PBS job ID is $PBS_JOBID
 
-./stencil 1024 1024 100
+mpirun -np 1 ./stencil 8000 8000 100
+mpirun -np 2 ./stencil 8000 8000 100
+mpirun -np 3 ./stencil 8000 8000 100
+mpirun -np 4 ./stencil 8000 8000 100
+mpirun -np 5 ./stencil 8000 8000 100
+mpirun -np 6 ./stencil 8000 8000 100
+mpirun -np 7 ./stencil 8000 8000 100
+mpirun -np 8 ./stencil 8000 8000 100
+mpirun -np 9 ./stencil 8000 8000 100
+mpirun -np 10 ./stencil 8000 8000 100
+mpirun -np 11 ./stencil 8000 8000 100
+mpirun -np 12 ./stencil 8000 8000 100
+mpirun -np 13 ./stencil 8000 8000 100
+mpirun -np 14 ./stencil 8000 8000 100
+mpirun -np 15 ./stencil 8000 8000 100
+mpirun -np 16 ./stencil 8000 8000 100
 
